@@ -60,65 +60,15 @@ yt_video_html_body = Video.retrieve_video_body(yt_url, yt_page_request_headers)
 # build video
 #
 video = Video(yt_video_url=yt_url, yt_html_body=yt_video_html_body)
+
+#
+# retrieve video comments
+#
+initial_request = True
 top_lvl_comments = []
 pagination_token = video.video_continuation_key
 comments_request_url = video.get_video_comment_request_url()
-comment_request_body = Comment.comment_request_template(pagination_token, video.video_raw_context)
 
-#
-# first comment request
-#
-r = requests.post(comments_request_url, data=json.dumps(comment_request_body), headers=default_comment_headers)
-if r.status_code != 200:
-    raise Exception('main: failed post request comments')
-
-res = json.loads(r.content)
-time.sleep(random.randint(0, 2))
-r.close()
-
-# first 20 comments
-continutionItemRenderer = []
-for commentThreadRenderer in res['onResponseReceivedEndpoints'][1]['reloadContinuationItemsCommand']['continuationItems']:
-    author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token = '', '', 0, 0, '', False, ""
-
-    if 'commentThreadRenderer' in commentThreadRenderer:
-        commentRenderer = commentThreadRenderer['commentThreadRenderer']['comment']['commentRenderer']
-        author = commentRenderer['authorText']['simpleText']
-        for run in commentRenderer['contentText']['runs']:
-            comment += run['text'] + ' '
-
-        if 'voteCount' in commentRenderer:
-            like_count = commentRenderer['voteCount']['simpleText']
-            if like_count.isdigit():
-                like_count = int(like_count)
-
-        if 'replyCount' in commentRenderer:
-            reply_count = commentRenderer['replyCount']
-            if type(reply_count) == str and reply_count.isdigit():
-                reply_count = int(reply_count)
-            if reply_count > 0:
-                reply_cont_token = commentThreadRenderer['commentThreadRenderer']['replies']['commentRepliesRenderer']['contents'][0]['continuationItemRenderer']['continuationEndpoint']['continuationCommand']['token']
-
-        if 'authorIsChannelOwner' in commentRenderer:
-            authorIsChannelOwner = str(commentRenderer['authorIsChannelOwner']).lower() == 'true'
-
-        if 'publishedTimeText' in commentRenderer:
-            publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
-
-        top_lvl_comments.append(
-            Comment(author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token))
-    else:
-        continutionItemRenderer.append(commentThreadRenderer)
-
-# check more comments
-pagination_token = ""
-if continutionItemRenderer:
-    pagination_token = \
-        continutionItemRenderer[0]['continuationItemRenderer']['continuationEndpoint']['continuationCommand']['token']
-
-#
-# subsequent comment requests
-#
 while pagination_token:
 
     continutionItemRenderer = []
@@ -129,7 +79,8 @@ while pagination_token:
     time.sleep(random.randint(0, 2))
     r.close()
 
-    for commentThreadRenderer in res['onResponseReceivedEndpoints'][0]['appendContinuationItemsAction']['continuationItems']:
+    for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0]['reloadContinuationItemsCommand' if initial_request else 'appendContinuationItemsAction']['continuationItems']:
+        initial_request = False
         author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token = '', '', 0, 0, '', False, ""
         if 'commentThreadRenderer' in commentThreadRenderer:
             commentRenderer = commentThreadRenderer['commentThreadRenderer']['comment']['commentRenderer']
@@ -156,12 +107,11 @@ while pagination_token:
             if 'publishedTimeText' in commentRenderer:
                 publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
 
-            top_lvl_comments.append(
-                Comment(author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token))
+            top_lvl_comments.append(Comment(author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token))
         else:
             continutionItemRenderer.append(commentThreadRenderer)
 
-    # check more comments
+    # check for more comments
     pagination_token = ""
     if continutionItemRenderer:
         pagination_token = continutionItemRenderer[0]['continuationItemRenderer']['continuationEndpoint']['continuationCommand']['token']
