@@ -19,7 +19,8 @@ class Comment:
                 published_date: str = "",
                 is_video_owner: bool = False,
                 reply_initial_cont_token: str = "",
-                crawled_date: datetime = None):
+                crawled_date: datetime = None,
+                comment_detect_language: str = ""):
 
         self.author = author
         self.comment = comment
@@ -29,6 +30,7 @@ class Comment:
         self.crawled_date = crawled_date or datetime.now()
         self.is_video_owner = is_video_owner
         self.reply_initial_cont_token = reply_initial_cont_token
+        self.comment_detect_language = comment_detect_language
 
     def get_comment_replies(self, api_url: str, headers: Mapping, video_context: str) -> Optional[List[Comment]]:
         replies = None
@@ -46,7 +48,7 @@ class Comment:
                 commentRenderer = continuationItem['commentRenderer']
                 author = commentRenderer['authorText']['simpleText']
                 for run in commentRenderer['contentText']['runs']:
-                    comment += run['text'] + ' '
+                    comment += run['text'] + '\n'
 
                 if 'voteCount' in commentRenderer:
                     like_count = commentRenderer['voteCount']['simpleText']
@@ -72,21 +74,23 @@ class Comment:
         }
 
     def __str__(self):
-        return f'''
-author: {self.author}
-like_count: {self.like_count}
-reply_count: {self.reply_count}
-published_date: {self.published_date}
-crawled_date: {self.crawled_date.strftime("%Y-%d-%m")}
-comment: {self.comment}
-'''
+        s = (
+            f'author: {self.author}\n'
+            f'like_count: {self.like_count}\n'
+            f'reply_count: {self.reply_count}\n'
+            f'published_date: {self.published_date}\n'
+            f'crawled_date: {self.crawled_date.strftime("%Y-%d-%m")}\n'
+            f'comment: {self.comment}\n'
+        )
+        return s
 
     def replies_str(self):
-        return f'''
-    author: {self.author}
-    like_count: {self.like_count}
-    reply_count: {self.reply_count}
-    published_date: {self.published_date}
-    crawled_date: {self.crawled_date.strftime("%Y-%d-%m")}
-    comment: {self.comment}
-    '''
+        s = (
+            f'\tauthor: {self.author}\n'
+            f'\tlike_count: {self.like_count}\n'
+            f'\treply_count: {self.reply_count}\n'
+            f'\tpublished_date: {self.published_date}\n'
+            f'\tcrawled_date: {self.crawled_date.strftime("%Y-%d-%m")}\n'
+            f'\tcomment: \n\t\t{self.comment}\n'
+        )
+        return s

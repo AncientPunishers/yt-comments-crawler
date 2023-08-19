@@ -1,5 +1,6 @@
 from src.video import Video
 from src.comment import Comment
+from src.langdetect.utils import detect_language
 
 import requests
 import re
@@ -47,13 +48,6 @@ default_comment_headers = {
 #
 # get video html body
 #
-# yt_video_html_body = ""
-# resp = requests.get(yt_url, headers=yt_page_request_headers)
-# if resp.status_code != 200:
-#     raise Exception('main: failed get video html body')
-# else:
-#     yt_video_html_body = resp.content.decode("utf-8")
-
 yt_video_html_body = Video.retrieve_video_body(yt_url, yt_page_request_headers)
 
 #
@@ -64,62 +58,14 @@ video = Video(yt_video_url=yt_url, yt_html_body=yt_video_html_body)
 #
 # retrieve video comments
 #
-initial_request = True
-top_lvl_comments = []
-pagination_token = video.video_continuation_key
-comments_request_url = video.get_video_comment_request_url()
-
-while pagination_token:
-
-    continutionItemRenderer = []
-    comment_request_body = Comment.comment_request_template(pagination_token, video.video_raw_context)
-    time.sleep(random.randint(0, 2))
-    r = requests.post(comments_request_url, data=json.dumps(comment_request_body), headers=default_comment_headers)
-    res = json.loads(r.content)
-    time.sleep(random.randint(0, 2))
-    r.close()
-
-    for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0]['reloadContinuationItemsCommand' if initial_request else 'appendContinuationItemsAction']['continuationItems']:
-        initial_request = False
-        author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token = '', '', 0, 0, '', False, ""
-        if 'commentThreadRenderer' in commentThreadRenderer:
-            commentRenderer = commentThreadRenderer['commentThreadRenderer']['comment']['commentRenderer']
-            author = commentRenderer['authorText']['simpleText']
-            for run in commentRenderer['contentText']['runs']:
-                comment += run['text'] + ' '
-
-            if 'voteCount' in commentRenderer:
-                like_count = commentRenderer['voteCount']['simpleText']
-                if like_count.isdigit():
-                    like_count = int(like_count)
-
-            if 'replyCount' in commentRenderer:
-                reply_count = commentRenderer['replyCount']
-                if type(reply_count) == str and reply_count.isdigit():
-                    reply_count = int(reply_count)
-                if reply_count > 0:
-                    reply_cont_token = commentThreadRenderer['commentThreadRenderer']['replies']['commentRepliesRenderer']['contents'][0]['continuationItemRenderer']['continuationEndpoint']['continuationCommand']['token']
-
-            authorIsChannelOwner = False
-            if 'authorIsChannelOwner' in commentRenderer:
-                authorIsChannelOwner = str(commentRenderer['authorIsChannelOwner']).lower() == 'true'
-
-            if 'publishedTimeText' in commentRenderer:
-                publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
-
-            top_lvl_comments.append(Comment(author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token))
-        else:
-            continutionItemRenderer.append(commentThreadRenderer)
-
-    # check for more comments
-    pagination_token = ""
-    if continutionItemRenderer:
-        pagination_token = continutionItemRenderer[0]['continuationItemRenderer']['continuationEndpoint']['continuationCommand']['token']
+top_level_comments = video.get_video_comments(default_comment_headers)
 
 print(video)
 print()
-for c in top_lvl_comments:
+comments_request_url = video.get_video_comment_request_url()
+for c in top_level_comments:
     print(c)
+    print('detected_language', detect_language(c.comment))
     if c.reply_count:
         for r in c.get_comment_replies(comments_request_url, default_comment_headers, video.video_raw_context):
             print(r.replies_str())

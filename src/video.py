@@ -1,6 +1,9 @@
-from typing import Optional, Mapping
+from typing import Optional, Mapping, List
 import requests
 import re
+import json, time, random
+
+from src.comment import Comment
 
 
 class Video:
@@ -88,6 +91,74 @@ class Video:
         return Video.YT_COMMENT_API_URL_FORMAT.\
             format(innertube_key=self.video_innertube_key,
                    pretty_print=str(pretty_print).lower())
+
+    def get_video_comments(self, default_comment_headers: Mapping) -> List[Comment]:
+        initial_request = True
+        top_lvl_comments = []
+        pagination_token = self.video_continuation_key
+        comments_request_url = self.get_video_comment_request_url()
+
+        while pagination_token:
+
+            continutionItemRenderer = []
+            comment_request_body = Comment.comment_request_template(pagination_token, self.video_raw_context)
+            time.sleep(random.randint(0, 2))
+            r = requests.post(comments_request_url, data=json.dumps(comment_request_body),
+                              headers=default_comment_headers)
+            res = json.loads(r.content)
+            time.sleep(random.randint(0, 2))
+            r.close()
+
+            for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0][
+                'reloadContinuationItemsCommand' if initial_request else 'appendContinuationItemsAction'][
+                'continuationItems']:
+                initial_request = False
+                author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token = '', '', 0, 0, '', False, ""
+                if 'commentThreadRenderer' in commentThreadRenderer:
+                    commentRenderer = commentThreadRenderer['commentThreadRenderer']['comment']['commentRenderer']
+                    author = commentRenderer['authorText']['simpleText']
+                    for run in commentRenderer['contentText']['runs']:
+                        comment += run['text'] + ' '
+
+                    if 'voteCount' in commentRenderer:
+                        like_count = commentRenderer['voteCount']['simpleText']
+                        if like_count.isdigit():
+                            like_count = int(like_count)
+
+                    if 'replyCount' in commentRenderer:
+                        reply_count = commentRenderer['replyCount']
+                        if type(reply_count) == str and reply_count.isdigit():
+                            reply_count = int(reply_count)
+                        if reply_count > 0:
+                            reply_cont_token = \
+                                commentThreadRenderer['commentThreadRenderer']['replies']['commentRepliesRenderer'][
+                                    'contents'][
+                                    0]['continuationItemRenderer']['continuationEndpoint']['continuationCommand'][
+                                    'token']
+
+                    authorIsChannelOwner = False
+                    if 'authorIsChannelOwner' in commentRenderer:
+                        authorIsChannelOwner = str(commentRenderer['authorIsChannelOwner']).lower() == 'true'
+
+                    if 'publishedTimeText' in commentRenderer:
+                        publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
+
+                    top_lvl_comments.append(
+                        Comment(author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner,
+                                reply_cont_token))
+                else:
+                    continutionItemRenderer.append(commentThreadRenderer)
+
+            # check for more comments
+            pagination_token = ""
+            if continutionItemRenderer:
+                pagination_token = \
+                    continutionItemRenderer[0]['continuationItemRenderer']['continuationEndpoint'][
+                        'continuationCommand'][
+                        'token']
+
+        # done
+        return top_lvl_comments
 
     @staticmethod
     def retrieve_video_body(yt_video_url: str, headers: Mapping) -> str:
