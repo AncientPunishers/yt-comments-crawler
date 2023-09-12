@@ -68,4 +68,4 @@ for c in top_level_comments:
     print(c)
     if c.reply_count:
         for r in c.get_comment_replies(comments_request_url, default_comment_headers, video.video_raw_context):
-            print(r.replies_str())
+            print(r)
