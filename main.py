@@ -5,8 +5,8 @@ import random
 
 yt_url = "https://www.youtube.com/watch?v=aTxCDOWNvEw" # 2 comments
 yt_url = "https://www.youtube.com/watch?v=y_F9-_DucJw" # 20 comments
-# yt_url = "https://www.youtube.com/watch?v=AsWuKGZ1q7I" # 53 comments
-yt_url = "https://www.youtube.com/watch?v=5N8RXM1Z-Gw"
+yt_url = "https://www.youtube.com/watch?v=AsWuKGZ1q7I" # 53 comments
+# yt_url = "https://www.youtube.com/watch?v=5N8RXM1Z-Gw"
 # yt_url = "https://www.youtube.com/watch?v=_F5aWL7Ac3k" # 206
 # yt_url = "https://www.youtube.com/watch?v=IEAYS_UyO60" # 573
 # yt_url = "https://www.youtube.com/watch?v=0r-9WqyOMXc" # 534
