@@ -18,11 +18,11 @@ class Video:
     CONTINUATION_TOKEN_PATTERN = re.compile('continuationCommand":{"token":"([a-zA-Z0-9%]+)"')
     INNERTUBE_CONTEXT_PATTERN = re.compile('"INNERTUBE_CONTEXT":(.*?}}),')
     VIDEO_AUTHOR_PATTERN = re.compile(',"author":"(.+?)","')
-    VIDEO_AUTHOR_SUBSCRIBER_COUNT_PATTERN = re.compile('simpleText":"([0-9MK.]+) subscribers"')
+    VIDEO_AUTHOR_SUBSCRIBER_COUNT_PATTERN = re.compile('simpleText":"([0-9MKB.]+) subscribers"')
     VIDEO_TITLE_PATTERN = re.compile('"videoDescriptionHeaderRenderer":{"title":{"runs":\[{"text":"(.+?)"}]},')
-    VIDEO_VIEW_COUNT_PATTERN = re.compile('"videoViewCountRenderer":{"viewCount":{"simpleText":"(.+?) views"},"shortViewCount":{"simpleText":"([0-9MK.]+) views"},')
+    VIDEO_VIEW_COUNT_PATTERN = re.compile('"videoViewCountRenderer":{"viewCount":{"simpleText":"(.+?) views"},"shortViewCount":{"simpleText":"([0-9MKB.]+) views"},')
     VIDEO_PUBLISHED_DATE_PATTERN = re.compile('dateText":{"simpleText":"(.+?)"},')
-    VIDEO_TOTAL_COMMENT_COUNT_PATTERN = re.compile('"commentCount":{"simpleText":"([0-9]+)"')
+    VIDEO_TOTAL_COMMENT_COUNT_PATTERN = re.compile('\"commentCount\":\{\"simpleText\":\"(.+?)\"},\"contentRenderer\"')
 
     def __init__(self,
                  yt_video_url: str,
@@ -42,7 +42,7 @@ class Video:
         self.video_innertube_key = yt_video_innertube_key
         self.video_initial_continuation_key = yt_video_initial_continuation_key
         self.video_raw_context = yt_video_raw_context
-        self.total_comment_count = 0
+        self.total_comment_count = None
         self.author_name = yt_video_author_name
         self.video_title = yt_video_title
         self.video_subscriber_count = yt_video_subscriber_count
@@ -102,23 +102,23 @@ class Video:
 
             continutionItemRenderer = []
             comment_request_body = Comment.comment_request_template(pagination_token, self.video_raw_context)
-            time.sleep(random.randint(0, 2))
+            # time.sleep(random.randint(0, 2))
             r = requests.post(comments_request_url, data=json.dumps(comment_request_body),
                               headers=default_comment_headers)
             res = json.loads(r.content)
-            time.sleep(random.randint(0, 2))
+            # time.sleep(random.randint(0, 2))
             r.close()
 
             for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0][
                 'reloadContinuationItemsCommand' if initial_request else 'appendContinuationItemsAction'][
                 'continuationItems']:
                 initial_request = False
-                author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token = '', '', 0, 0, '', False, ""
+                author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner, reply_cont_token = '', [], 0, 0, '', False, ""
                 if 'commentThreadRenderer' in commentThreadRenderer:
                     commentRenderer = commentThreadRenderer['commentThreadRenderer']['comment']['commentRenderer']
                     author = commentRenderer['authorText']['simpleText']
                     for run in commentRenderer['contentText']['runs']:
-                        comment += run['text'] + ' '
+                        comment.append(run['text'])
 
                     if 'voteCount' in commentRenderer:
                         like_count = commentRenderer['voteCount']['simpleText']
@@ -243,13 +243,11 @@ class Video:
         return dt
 
     @staticmethod
-    def parse_video_total_comment_count_from_html(body: str) -> Optional[int]:
-        count = -1
+    def parse_video_total_comment_count_from_html(body: str) -> Optional[str]:
+        count = ""
         matches = Video.VIDEO_TOTAL_COMMENT_COUNT_PATTERN.findall(body)
         if matches:
-            raw_count = matches.pop()
-            if raw_count.isdigit():
-                count = int(raw_count)
+            count = matches.pop()
 
         return count
 
@@ -264,12 +262,10 @@ class Video:
 
     def __str__(self):
         return f'''
-title: {self.video_title}
-author: {self.author_name}
-view: {self.video_view_count}
-comments: {self.total_comment_count}
-sub count: {self.video_subscriber_count}
-published_date: {self.video_publish_date}
-url: {self.video_url}
-initial_cont_key: {self.video_continuation_key}
-'''
+title:          {self.video_title}
+author:         {self.author_name}
+view:           {self.video_view_count}
+comments:       {self.total_comment_count}
+subsribers:     {self.video_subscriber_count}
+published date: {self.video_publish_date}
+url:            {self.video_url}'''

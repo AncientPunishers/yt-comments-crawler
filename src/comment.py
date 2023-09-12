@@ -13,7 +13,7 @@ class Comment:
 
     def __init__(self,
                 author: str,
-                comment: str,
+                comment: List[str],
                 like_count: int = 0,
                 reply_count: int = 0,
                 published_date: str = "",
@@ -34,36 +34,56 @@ class Comment:
 
     def get_comment_replies(self, api_url: str, headers: Mapping, video_context: str) -> Optional[List[Comment]]:
         replies = None
-        request_body = Comment.comment_request_template(self.reply_initial_cont_token, video_context)
-        resp = requests.post(api_url, data=json.dumps(request_body), headers=headers)
+        replies_pagination_token = self.reply_initial_cont_token
 
-        if resp.status_code == 200:
-            replies = []
-            res = json.loads(resp.content.decode('utf-8'))
-            continuationItems = \
-                res['onResponseReceivedEndpoints'][0]['appendContinuationItemsAction']['continuationItems']
-            for continuationItem in continuationItems:
-                author, comment, like_count, authorIsChannelOwner, publishedTimeText = "", "", 0, False, ""
+        while replies_pagination_token:
+            request_body = Comment.comment_request_template(replies_pagination_token, video_context)
+            resp = requests.post(api_url, data=json.dumps(request_body), headers=headers)
 
-                commentRenderer = continuationItem['commentRenderer']
-                author = commentRenderer['authorText']['simpleText']
-                for run in commentRenderer['contentText']['runs']:
-                    comment += run['text'] + '\n'
+            if resp.status_code == 200:
+                replies = []
+                res = json.loads(resp.content.decode('utf-8'))
 
-                if 'voteCount' in commentRenderer:
-                    like_count = commentRenderer['voteCount']['simpleText']
+                # cont items could be missing if reply thread were deleted for whatever reasons
+                if 'continuationItems' in res['onResponseReceivedEndpoints'][0]['appendContinuationItemsAction']:
 
-                if 'authorIsChannelOwner' in commentRenderer:
-                    authorIsChannelOwner = str(commentRenderer['authorIsChannelOwner']).lower() == 'true'
+                    continuationItems = \
+                        res['onResponseReceivedEndpoints'][0]['appendContinuationItemsAction']['continuationItems']
 
-                if 'publishedTimeText' in commentRenderer:
-                    publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
+                    if 'continuationItemRenderer' in continuationItems[-1]:
+                        replies_pagination_token = \
+                            continuationItems[-1]['continuationItemRenderer']['button']['buttonRenderer']['command'][
+                            'continuationCommand']['token']
+                    else:
+                        replies_pagination_token = ""
 
-                replies.append(Comment(author, comment, like_count, 0, publishedTimeText, authorIsChannelOwner))
+                    for continuationItem in continuationItems:
+                        author, comment, like_count, authorIsChannelOwner, publishedTimeText = "", [], 0, False, ""
 
-        # done
-        time.sleep(random.randint(0, 2))
-        resp.close()
+                        if 'commentRenderer' in continuationItem:
+                            commentRenderer = continuationItem['commentRenderer']
+                            author = commentRenderer['authorText']['simpleText']
+                            for run in commentRenderer['contentText']['runs']:
+                                comment.append(run['text'])
+
+                            if 'voteCount' in commentRenderer:
+                                like_count = commentRenderer['voteCount']['simpleText']
+
+                            if 'authorIsChannelOwner' in commentRenderer:
+                                authorIsChannelOwner = str(commentRenderer['authorIsChannelOwner']).lower() == 'true'
+
+                            if 'publishedTimeText' in commentRenderer:
+                                publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
+
+                            replies.append(Comment(author, comment, like_count, 0, publishedTimeText, authorIsChannelOwner))
+                else:
+                    replies_pagination_token = ""
+
+            # done
+            # time.sleep(random.randint(0, 2))
+            if resp:
+                resp.close()
+
         return replies
 
     @staticmethod
@@ -75,22 +95,22 @@ class Comment:
 
     def __str__(self):
         s = (
-            f'author: {self.author}\n'
-            f'like_count: {self.like_count}\n'
-            f'reply_count: {self.reply_count}\n'
-            f'published_date: {self.published_date}\n'
-            f'crawled_date: {self.crawled_date.strftime("%Y-%d-%m")}\n'
-            f'comment: {self.comment}\n'
+            f'author:           {self.author}\n'
+            f'like count:       {self.like_count}\n'
+            f'reply count:      {self.reply_count}\n'
+            f'published date:   {self.published_date}\n'
+            f'crawled date:     {self.crawled_date.strftime("%Y-%d-%m")}\n'
+            f'comment:          {self.comment}\n'
         )
         return s
 
     def replies_str(self):
         s = (
-            f'\tauthor: {self.author}\n'
-            f'\tlike_count: {self.like_count}\n'
-            f'\treply_count: {self.reply_count}\n'
-            f'\tpublished_date: {self.published_date}\n'
-            f'\tcrawled_date: {self.crawled_date.strftime("%Y-%d-%m")}\n'
-            f'\tcomment: \n\t\t{self.comment}\n'
+            f'\tauthor:         {self.author}\n'
+            f'\tlike count:     {self.like_count}\n'
+            f'\treply count:    {self.reply_count}\n'
+            f'\tpublished date: {self.published_date}\n'
+            f'\tcrawled date:   {self.crawled_date.strftime("%Y-%d-%m")}\n'
+            f'\tcomment:        {self.comment}\n'
         )
         return s
