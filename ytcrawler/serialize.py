@@ -26,7 +26,6 @@ PrettyJsonEncoder = JSONEncoder(
 )
 
 DefaultExportJsonEncoder = JSONEncoder(
-    sort_keys=True,
     default=json_serial,
     ensure_ascii=False,
 )
