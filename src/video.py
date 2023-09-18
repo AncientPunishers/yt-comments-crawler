@@ -1,13 +1,12 @@
 import json
 import re
-from typing import Optional, Mapping, List
+from typing import Optional, Mapping, Iterator
 
 import requests
 
 from src import utils
 from src.comment import Comment
 from src.urls import YOUTUBE_VIDEO_API_URL_FORMAT
-# from src.utils import yt_comment_request_headers, yt_video_page_request_headers, comment_request_template
 
 # regex patterns to parse video specific information from video's raw html page
 VIDEO_ID_PATTERN = re.compile('https:\/\/www.youtube.com\/watch.*v=([a-zA-Z0-9_-]+).*')
@@ -102,9 +101,8 @@ class Video:
     def get_video_comment_headers(self) -> Mapping:
         return utils.yt_comment_request_headers(self.video_url)
 
-    def get_video_comments(self, comment_headers: Optional[Mapping] = None) -> List[Comment]:
+    def get_video_comments(self, comment_headers: Optional[Mapping] = None) -> Iterator[Comment]:
         initial_request = True
-        top_lvl_comments = []
         pagination_token = self.video_continuation_key
         comments_request_url = self.get_video_comment_request_url()
 
@@ -118,7 +116,6 @@ class Video:
             r = requests.post(comments_request_url, data=json.dumps(comment_request_body),
                               headers=comment_headers)
             res = json.loads(r.content)
-            r.close()
 
             for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0][
                 'reloadContinuationItemsCommand' if initial_request else 'appendContinuationItemsAction'][
@@ -155,16 +152,16 @@ class Video:
                     if 'publishedTimeText' in commentRenderer:
                         publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
 
-                    top_lvl_comments.append(
-                        Comment(video_id=self.video_id,
-                                author=author,
-                                comment_id=comment_id,
-                                comment=comment,
-                                like_count=like_count,
-                                reply_count=reply_count,
-                                published_date=publishedTimeText,
-                                is_video_owner=authorIsChannelOwner,
-                                reply_initial_cont_token=reply_cont_token))
+                    yield Comment(
+                        video_id=self.video_id,
+                        author=author,
+                        comment_id=comment_id,
+                        comment=comment,
+                        like_count=like_count,
+                        reply_count=reply_count,
+                        published_date=publishedTimeText,
+                        is_video_owner=authorIsChannelOwner,
+                        reply_initial_cont_token=reply_cont_token)
                 else:
                     continutionItemRenderer.append(commentThreadRenderer)
 
@@ -175,9 +172,6 @@ class Video:
                     continutionItemRenderer[0]['continuationItemRenderer']['continuationEndpoint'][
                         'continuationCommand'][
                         'token']
-
-        # done
-        return top_lvl_comments
 
     def asdict(self) -> Mapping:
         return {

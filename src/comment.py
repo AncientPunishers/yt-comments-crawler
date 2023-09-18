@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Mapping, List, Optional
+from typing import Mapping, List, Iterator
 
 import requests
 
@@ -32,8 +32,7 @@ class Comment:
                             parent_id: str,
                             comments_request_url: str,
                             video_comment_headers: Mapping,
-                            video_context: str) -> Optional[List[Comment]]:
-        replies = None
+                            video_context: str) -> Iterator[Comment]:
         replies_pagination_token = self.reply_initial_cont_token
 
         while replies_pagination_token:
@@ -41,7 +40,6 @@ class Comment:
             resp = requests.post(comments_request_url, data=json.dumps(request_body), headers=video_comment_headers)
 
             if resp.status_code == 200:
-                replies = []
                 res = json.loads(resp.content.decode('utf-8'))
 
                 # cont items could be missing if reply thread were deleted for whatever reasons
@@ -76,25 +74,19 @@ class Comment:
                             if 'publishedTimeText' in commentRenderer:
                                 publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
 
-                            replies.append(
-                                Comment(
-                                    video_id=self.video_id,
-                                    author=author,
-                                    comment=comment,
-                                    comment_id=comment_id,
-                                    parent_comment_id=parent_id,
-                                    like_count=like_count,
-                                    reply_count=0,
-                                    published_date=publishedTimeText,
-                                    is_video_owner=authorIsChannelOwner,
-                                    is_reply=True))
+                            yield Comment(
+                                video_id=self.video_id,
+                                author=author,
+                                comment=comment,
+                                comment_id=comment_id,
+                                parent_comment_id=parent_id,
+                                like_count=like_count,
+                                reply_count=0,
+                                published_date=publishedTimeText,
+                                is_video_owner=authorIsChannelOwner,
+                                is_reply=True)
                 else:
                     replies_pagination_token = ""
-
-            if resp:
-                resp.close()
-
-        return replies
 
     def has_reply(self):
         return self.reply_count > 0
