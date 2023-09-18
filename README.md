@@ -2,7 +2,7 @@
 
 crawl yt video comments and replies using just requests. 
 
-do not need chromium or other headless browser dependencies.
+do not need chromium or other headless browser dependencies or any API key.
 
 ---
 
