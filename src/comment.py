@@ -1,44 +1,44 @@
 from __future__ import annotations
 
 import json
-import random
-import time
-
-import requests
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Mapping, List, Optional
 
+import requests
 
+from src import utils
+
+comment_output_blacklist = {'reply_initial_cont_token'}
+
+
+@dataclass(repr=False)
 class Comment:
 
-    def __init__(self,
-                author: str,
-                comment: List[str],
-                like_count: int = 0,
-                reply_count: int = 0,
-                published_date: str = "",
-                is_video_owner: bool = False,
-                reply_initial_cont_token: str = "",
-                crawled_date: datetime = None,
-                is_reply: bool = False):
+    video_id: str
+    author: str
+    comment: List[str]
+    comment_id: str
+    like_count: int = 0
+    reply_count: int = 0
+    is_reply: bool = False
+    parent_comment_id: str = ''
+    published_date: str = ""
+    crawled_date: datetime = datetime.now()
+    is_video_owner: bool = False
+    reply_initial_cont_token: str = ""
 
-        self.author = author
-        self.comment = comment
-        self.like_count = like_count
-        self.reply_count = reply_count
-        self.is_reply = is_reply
-        self.published_date = published_date
-        self.crawled_date = crawled_date or datetime.now()
-        self.is_video_owner = is_video_owner
-        self.reply_initial_cont_token = reply_initial_cont_token
-
-    def get_comment_replies(self, api_url: str, headers: Mapping, video_context: str) -> Optional[List[Comment]]:
+    def get_comment_replies(self,
+                            parent_id: str,
+                            comments_request_url: str,
+                            video_comment_headers: Mapping,
+                            video_context: str) -> Optional[List[Comment]]:
         replies = None
         replies_pagination_token = self.reply_initial_cont_token
 
         while replies_pagination_token:
-            request_body = Comment.comment_request_template(replies_pagination_token, video_context)
-            resp = requests.post(api_url, data=json.dumps(request_body), headers=headers)
+            request_body = utils.comment_request_template(replies_pagination_token, video_context)
+            resp = requests.post(comments_request_url, data=json.dumps(request_body), headers=video_comment_headers)
 
             if resp.status_code == 200:
                 replies = []
@@ -63,6 +63,7 @@ class Comment:
                         if 'commentRenderer' in continuationItem:
                             commentRenderer = continuationItem['commentRenderer']
                             author = commentRenderer['authorText']['simpleText']
+                            comment_id = commentRenderer['commentId']
                             for run in commentRenderer['contentText']['runs']:
                                 comment.append(run['text'])
 
@@ -75,23 +76,28 @@ class Comment:
                             if 'publishedTimeText' in commentRenderer:
                                 publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
 
-                            replies.append(Comment(author, comment, like_count, 0, publishedTimeText, authorIsChannelOwner, is_reply=True))
+                            replies.append(
+                                Comment(
+                                    video_id=self.video_id,
+                                    author=author,
+                                    comment=comment,
+                                    comment_id=comment_id,
+                                    parent_comment_id=parent_id,
+                                    like_count=like_count,
+                                    reply_count=0,
+                                    published_date=publishedTimeText,
+                                    is_video_owner=authorIsChannelOwner,
+                                    is_reply=True))
                 else:
                     replies_pagination_token = ""
 
-            # done
-            # time.sleep(random.randint(0, 2))
             if resp:
                 resp.close()
 
         return replies
 
-    @staticmethod
-    def comment_request_template(cont_token: str, context: str) -> Mapping:
-        return {
-            "context": json.loads(context),
-            "continuation": cont_token
-        }
+    def has_reply(self):
+        return self.reply_count > 0
 
     def __str__(self):
         s = (

@@ -1,32 +1,35 @@
-from typing import Optional, Mapping, List
-import requests
+import json
 import re
-import json, time, random
+from typing import Optional, Mapping, List
 
+import requests
+
+from src import utils
 from src.comment import Comment
+from src.urls import YOUTUBE_VIDEO_API_URL_FORMAT
+# from src.utils import yt_comment_request_headers, yt_video_page_request_headers, comment_request_template
+
+# regex patterns to parse video specific information from video's raw html page
+VIDEO_ID_PATTERN = re.compile('https:\/\/www.youtube.com\/watch.*v=([a-zA-Z0-9_-]+).*')
+INNERTUBE_KEY_PATTERN = re.compile('INNERTUBE_API_KEY":"([a-zA-Z_1-9]+)\"')
+INNERTUBE_API_VERSION_PATTERN = re.compile('INNERTUBE_API_VERSION":"([a-zA-Z_1-9]+)"')
+INNERTUBE_CLIENT_VERSION_PATTERN = re.compile('INNERTUBE_CLIENT_VERSION":"([0-9\\.]+)"')
+CONTINUATION_TOKEN_PATTERN = re.compile('continuationCommand":{"token":"([a-zA-Z0-9%]+)"')
+INNERTUBE_CONTEXT_PATTERN = re.compile('"INNERTUBE_CONTEXT":(.*?}}),')
+VIDEO_AUTHOR_PATTERN = re.compile(',"author":"(.+?)","')
+VIDEO_AUTHOR_SUBSCRIBER_COUNT_PATTERN = re.compile('simpleText":"([0-9MKB.]+) subscribers"')
+VIDEO_TITLE_PATTERN = re.compile('"videoDescriptionHeaderRenderer":{"title":{"runs":\[{"text":"(.+?)"}]},')
+VIDEO_VIEW_COUNT_PATTERN = re.compile('"videoViewCountRenderer":{"viewCount":{"simpleText":"(.+?) views"},"shortViewCount":{"simpleText":"([0-9MKB.]+) views"},')
+VIDEO_PUBLISHED_DATE_PATTERN = re.compile('dateText":{"simpleText":"(.+?)"},')
+VIDEO_TOTAL_COMMENT_COUNT_PATTERN = re.compile('\"commentCount\":\{\"simpleText\":\"(.+?)\"},\"contentRenderer\"')
 
 
 class Video:
 
-    YT_COMMENT_API_URL_FORMAT = \
-        "https://www.youtube.com/youtubei/v1/next?key={innertube_key}&prettyPrint={pretty_print}"
-
-    # regex patterns to parse video specific information from video's raw html page
-    INNERTUBE_KEY_PATTERN = re.compile('INNERTUBE_API_KEY":"([a-zA-Z_1-9]+)\"')
-    INNERTUBE_API_VERSION_PATTERN = re.compile('INNERTUBE_API_VERSION":"([a-zA-Z_1-9]+)"')
-    INNERTUBE_CLIENT_VERSION_PATTERN = re.compile('INNERTUBE_CLIENT_VERSION":"([0-9\\.]+)"')
-    CONTINUATION_TOKEN_PATTERN = re.compile('continuationCommand":{"token":"([a-zA-Z0-9%]+)"')
-    INNERTUBE_CONTEXT_PATTERN = re.compile('"INNERTUBE_CONTEXT":(.*?}}),')
-    VIDEO_AUTHOR_PATTERN = re.compile(',"author":"(.+?)","')
-    VIDEO_AUTHOR_SUBSCRIBER_COUNT_PATTERN = re.compile('simpleText":"([0-9MKB.]+) subscribers"')
-    VIDEO_TITLE_PATTERN = re.compile('"videoDescriptionHeaderRenderer":{"title":{"runs":\[{"text":"(.+?)"}]},')
-    VIDEO_VIEW_COUNT_PATTERN = re.compile('"videoViewCountRenderer":{"viewCount":{"simpleText":"(.+?) views"},"shortViewCount":{"simpleText":"([0-9MKB.]+) views"},')
-    VIDEO_PUBLISHED_DATE_PATTERN = re.compile('dateText":{"simpleText":"(.+?)"},')
-    VIDEO_TOTAL_COMMENT_COUNT_PATTERN = re.compile('\"commentCount\":\{\"simpleText\":\"(.+?)\"},\"contentRenderer\"')
-
     def __init__(self,
                  yt_video_url: str,
-                 yt_html_body: str,
+                 yt_video_id: str = "",
+                 yt_html_body: str = "",
                  yt_video_innertube_key: str = "",
                  yt_video_initial_continuation_key: str = "",
                  yt_video_raw_context: str = "",
@@ -37,7 +40,11 @@ class Video:
                  yt_video_title: str = "",
                  yt_video_client_ver: str = ""):
 
+        if not yt_html_body:
+            yt_html_body = Video.retrieve_video_body(yt_video_url)
+
         self.video_url = yt_video_url
+        self.video_id = yt_video_id
         self.html_body = yt_html_body
         self.video_innertube_key = yt_video_innertube_key
         self.video_initial_continuation_key = yt_video_initial_continuation_key
@@ -51,8 +58,8 @@ class Video:
         self.video_client_version = yt_video_client_ver
         self.seen_continuation_tokens = []
 
-        if not self.html_body:
-            raise Exception("Video: failed to retrieve raw html body")
+        if not self.video_id:
+            self.video_id = Video.parse_video_id_from_url(self.video_url)
 
         if not self.video_innertube_key:
             self.video_innertube_key = Video.parse_innertube_key_from_html(self.html_body)
@@ -88,25 +95,29 @@ class Video:
         self.seen_continuation_tokens.append(self.video_continuation_key)
 
     def get_video_comment_request_url(self, pretty_print: bool = False):
-        return Video.YT_COMMENT_API_URL_FORMAT.\
+        return YOUTUBE_VIDEO_API_URL_FORMAT.\
             format(innertube_key=self.video_innertube_key,
                    pretty_print=str(pretty_print).lower())
 
-    def get_video_comments(self, default_comment_headers: Mapping) -> List[Comment]:
+    def get_video_comment_headers(self) -> Mapping:
+        return utils.yt_comment_request_headers(self.video_url)
+
+    def get_video_comments(self, comment_headers: Optional[Mapping] = None) -> List[Comment]:
         initial_request = True
         top_lvl_comments = []
         pagination_token = self.video_continuation_key
         comments_request_url = self.get_video_comment_request_url()
 
+        if not comment_headers:
+            comment_headers = utils.yt_comment_request_headers(self.video_url)
+
         while pagination_token:
 
             continutionItemRenderer = []
-            comment_request_body = Comment.comment_request_template(pagination_token, self.video_raw_context)
-            # time.sleep(random.randint(0, 2))
+            comment_request_body = utils.comment_request_template(pagination_token, self.video_raw_context)
             r = requests.post(comments_request_url, data=json.dumps(comment_request_body),
-                              headers=default_comment_headers)
+                              headers=comment_headers)
             res = json.loads(r.content)
-            # time.sleep(random.randint(0, 2))
             r.close()
 
             for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0][
@@ -117,6 +128,7 @@ class Video:
                 if 'commentThreadRenderer' in commentThreadRenderer:
                     commentRenderer = commentThreadRenderer['commentThreadRenderer']['comment']['commentRenderer']
                     author = commentRenderer['authorText']['simpleText']
+                    comment_id = commentRenderer['commentId']
                     for run in commentRenderer['contentText']['runs']:
                         comment.append(run['text'])
 
@@ -144,8 +156,15 @@ class Video:
                         publishedTimeText = commentRenderer['publishedTimeText']['runs'][0]['text']
 
                     top_lvl_comments.append(
-                        Comment(author, comment, like_count, reply_count, publishedTimeText, authorIsChannelOwner,
-                                reply_cont_token))
+                        Comment(video_id=self.video_id,
+                                author=author,
+                                comment_id=comment_id,
+                                comment=comment,
+                                like_count=like_count,
+                                reply_count=reply_count,
+                                published_date=publishedTimeText,
+                                is_video_owner=authorIsChannelOwner,
+                                reply_initial_cont_token=reply_cont_token))
                 else:
                     continutionItemRenderer.append(commentThreadRenderer)
 
@@ -160,8 +179,22 @@ class Video:
         # done
         return top_lvl_comments
 
+    def asdict(self) -> Mapping:
+        return {
+            'title': self.video_title,
+            'author': self.author_name,
+            'view': self.video_view_count,
+            'comments': self.total_comment_count,
+            'published_date': self.video_publish_date,
+            'url': self.video_url,
+            'id': self.video_id,
+        }
+
     @staticmethod
-    def retrieve_video_body(yt_video_url: str, headers: Mapping) -> str:
+    def retrieve_video_body(yt_video_url: str, headers: Optional[Mapping] = None) -> str:
+        if not headers:
+            headers = utils.yt_video_page_request_headers()
+
         resp = requests.get(yt_video_url, headers=headers)
         if resp.status_code != 200:
             raise Exception('Failed: retrieve video html body', resp.content)
@@ -171,9 +204,18 @@ class Video:
         return body
 
     @staticmethod
+    def parse_video_id_from_url(url: str) -> Optional[str]:
+        id = None
+        matches = VIDEO_ID_PATTERN.findall(url)
+        if matches:
+            id = matches.pop()
+
+        return id
+
+    @staticmethod
     def parse_innertube_key_from_html(body: str) -> Optional[str]:
         key = None
-        matches = Video.INNERTUBE_KEY_PATTERN.findall(body)
+        matches = INNERTUBE_KEY_PATTERN.findall(body)
         if matches:
             key = matches.pop()
 
@@ -182,7 +224,7 @@ class Video:
     @staticmethod
     def parse_continuation_key_from_html(body: str) -> Optional[str]:
         key = None
-        matches = Video.CONTINUATION_TOKEN_PATTERN.findall(body)
+        matches = CONTINUATION_TOKEN_PATTERN.findall(body)
         if matches:
             key = matches.pop()
 
@@ -191,7 +233,7 @@ class Video:
     @staticmethod
     def parse_innertube_context_from_html(body: str) -> Optional[str]:
         context = None
-        matches = Video.INNERTUBE_CONTEXT_PATTERN.findall(body)
+        matches = INNERTUBE_CONTEXT_PATTERN.findall(body)
         if matches:
             context = matches.pop()
 
@@ -200,7 +242,7 @@ class Video:
     @staticmethod
     def parse_video_author_name_from_html(body: str) -> Optional[str]:
         name = None
-        matches = Video.VIDEO_AUTHOR_PATTERN.findall(body)
+        matches = VIDEO_AUTHOR_PATTERN.findall(body)
         if matches:
             name = matches.pop()
 
@@ -209,7 +251,7 @@ class Video:
     @staticmethod
     def parse_video_title_from_html(body: str) -> Optional[str]:
         title = None
-        matches = Video.VIDEO_TITLE_PATTERN.findall(body)
+        matches = VIDEO_TITLE_PATTERN.findall(body)
         if matches:
             title = matches.pop()
 
@@ -218,7 +260,7 @@ class Video:
     @staticmethod
     def parse_video_subscriber_count_from_html(body: str) -> Optional[str]:
         count = None
-        matches = Video.VIDEO_AUTHOR_SUBSCRIBER_COUNT_PATTERN.findall(body)
+        matches = VIDEO_AUTHOR_SUBSCRIBER_COUNT_PATTERN.findall(body)
         if matches:
             count = matches.pop()
 
@@ -227,7 +269,7 @@ class Video:
     @staticmethod
     def parse_video_view_count_from_html(body: str) -> Optional[str]:
         exact_count, simple_count = None, None
-        matches = Video.VIDEO_VIEW_COUNT_PATTERN.findall(body)
+        matches = VIDEO_VIEW_COUNT_PATTERN.findall(body)
         if matches:
             exact_count, simple_count = matches.pop()
 
@@ -236,7 +278,7 @@ class Video:
     @staticmethod
     def parse_video_published_date_from_html(body: str) -> Optional[str]:
         dt = None
-        matches = Video.VIDEO_PUBLISHED_DATE_PATTERN.findall(body)
+        matches = VIDEO_PUBLISHED_DATE_PATTERN.findall(body)
         if matches:
             dt = matches.pop()
 
@@ -245,7 +287,7 @@ class Video:
     @staticmethod
     def parse_video_total_comment_count_from_html(body: str) -> Optional[str]:
         count = ""
-        matches = Video.VIDEO_TOTAL_COMMENT_COUNT_PATTERN.findall(body)
+        matches = VIDEO_TOTAL_COMMENT_COUNT_PATTERN.findall(body)
         if matches:
             count = matches.pop()
 
@@ -254,7 +296,7 @@ class Video:
     @staticmethod
     def parse_video_client_version_from_html(body: str) -> str:
         ver = ""
-        matches = Video.INNERTUBE_CLIENT_VERSION_PATTERN.findall(body)
+        matches = INNERTUBE_CLIENT_VERSION_PATTERN.findall(body)
         if matches:
             ver = matches.pop()
 
@@ -268,4 +310,6 @@ view:           {self.video_view_count}
 comments:       {self.total_comment_count}
 subsribers:     {self.video_subscriber_count}
 published date: {self.video_publish_date}
-url:            {self.video_url}'''
+url:            {self.video_url}
+id:             {self.video_id}
+'''
