@@ -3,8 +3,8 @@ from datetime import datetime
 from json import JSONEncoder
 from typing import Any
 
-from src import Video
-from src.comment import Comment, comment_output_blacklist
+from ytcrawler import Video
+from ytcrawler.comment import Comment, comment_output_blacklist
 
 
 def json_serial(obj: Any):

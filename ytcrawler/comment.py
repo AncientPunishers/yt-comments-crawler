@@ -7,7 +7,7 @@ from typing import Mapping, List, Iterator
 
 import requests
 
-from src import utils
+from ytcrawler import utils
 
 comment_output_blacklist = {'reply_initial_cont_token'}
 

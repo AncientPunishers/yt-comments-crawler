@@ -1,8 +1,8 @@
-from src.video import Video
+from ytcrawler.video import Video
 
 yt_url = "https://www.youtube.com/watch?v=AsWuKGZ1q7I" # 53 comments
-yt_url = "https://www.youtube.com/watch?v=_F5aWL7Ac3k" # 233 comments
-yt_url = "https://www.youtube.com/watch?v=0aoL0aAI18s" # 382 comments
+# yt_url = "https://www.youtube.com/watch?v=_F5aWL7Ac3k" # 233 comments
+# yt_url = "https://www.youtube.com/watch?v=0aoL0aAI18s" # 382 comments
 # yt_url = "https://www.youtube.com/watch?v=gdZLi9oWNZg" # 15m comments
 # yt_url = "https://www.youtube.com/watch?v=uRxsLwqx4VM"
 # yt_url = "https://www.youtube.com/watch?v=IHNzOHi8sJs"

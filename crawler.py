@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 
-from src import Video, serialize
+from ytcrawler import Video, serialize
 
 
 def main():

@@ -4,9 +4,9 @@ from typing import Optional, Mapping, Iterator
 
 import requests
 
-from src import utils
-from src.comment import Comment
-from src.urls import YOUTUBE_VIDEO_API_URL_FORMAT
+from ytcrawler import utils
+from ytcrawler.comment import Comment
+from ytcrawler.urls import YOUTUBE_VIDEO_API_URL_FORMAT
 
 # regex patterns to parse video specific information from video's raw html page
 VIDEO_ID_PATTERN = re.compile('https:\/\/www.youtube.com\/watch.*v=([a-zA-Z0-9_-]+).*')

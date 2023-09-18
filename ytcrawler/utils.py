@@ -2,7 +2,7 @@ import json
 import random
 from typing import Mapping
 
-from src.constants import USER_AGENTS, DEFAULT_HEADERS
+from ytcrawler.constants import USER_AGENTS, DEFAULT_HEADERS
 
 
 def random_user_agent():
