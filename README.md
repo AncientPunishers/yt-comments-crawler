@@ -1,5 +1,9 @@
 ## Simple Comments Crawler for Youtube Video
 
+crawl yt video comments and replies using just requests. 
+
+do not need chromium or other headless browser dependencies.
+
 ---
 
 ### > <b>__Video Info__</b>
