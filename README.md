@@ -1,8 +1,7 @@
 ## Simple Comments Crawler for Youtube Video
 
-crawl yt video comments and replies using just requests. 
-
-do not need chromium or other headless browser dependencies or any API key.
+crawl yt video comments and replies using just the standard lib.
+no external dependency such as api key or additional pypi module is required.
 
 ---
 
