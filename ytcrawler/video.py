@@ -2,9 +2,8 @@ import json
 import re
 from typing import Optional, Mapping, Iterator
 
-import requests
-
 from ytcrawler import utils
+from ytcrawler import ytrequest
 from ytcrawler.comment import Comment
 from ytcrawler.urls import YOUTUBE_VIDEO_API_URL_FORMAT
 
@@ -113,9 +112,8 @@ class Video:
 
             continutionItemRenderer = []
             comment_request_body = utils.comment_request_template(pagination_token, self.video_raw_context)
-            r = requests.post(comments_request_url, data=json.dumps(comment_request_body),
-                              headers=comment_headers)
-            res = json.loads(r.content)
+            r = ytrequest.post(comments_request_url, comment_request_body, comment_headers)
+            res = json.loads(r)
 
             for commentThreadRenderer in res['onResponseReceivedEndpoints'][1 if initial_request else 0][
                 'reloadContinuationItemsCommand' if initial_request else 'appendContinuationItemsAction'][
@@ -189,12 +187,7 @@ class Video:
         if not headers:
             headers = utils.yt_video_page_request_headers()
 
-        resp = requests.get(yt_video_url, headers=headers)
-        if resp.status_code != 200:
-            raise Exception('Failed: retrieve video html body', resp.content)
-
-        body = resp.content.decode('utf-8')
-        resp.close()
+        body = ytrequest.get(yt_video_url, headers)
         return body
 
     @staticmethod
