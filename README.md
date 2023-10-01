@@ -1,7 +1,7 @@
 ## Simple Comments Crawler for Youtube Video
 
 * crawl yt video comments and replies using only the Python3 standard library.
-* zero external dependency needed.
+* zero external dependency needed. no soup, no headless browser, just Python3.
 
 ---
 
