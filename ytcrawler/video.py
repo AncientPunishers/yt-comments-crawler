@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Optional, Mapping, Iterator
+import time, random
 
 from ytcrawler import utils
 from ytcrawler import ytrequest
@@ -100,7 +101,8 @@ class Video:
     def get_video_comment_headers(self) -> Mapping:
         return utils.yt_comment_request_headers(self.video_url)
 
-    def get_video_comments(self, comment_headers: Optional[Mapping] = None) -> Iterator[Comment]:
+    def get_video_comments(self, comment_headers: Optional[Mapping] = None, throttle: bool = True) -> Iterator[Comment]:
+
         initial_request = True
         pagination_token = self.video_continuation_key
         comments_request_url = self.get_video_comment_request_url()
@@ -171,11 +173,16 @@ class Video:
                         'continuationCommand'][
                         'token']
 
+            # throttle request
+            if pagination_token and throttle:
+                time.sleep(random.randint(0, 2))
+
     def asdict(self) -> Mapping:
         return {
             'title': self.video_title,
             'author': self.author_name,
-            'view': self.video_view_count,
+            'subscribers': self.video_subscriber_count,
+            'views': self.video_view_count,
             'comments': self.total_comment_count,
             'published_date': self.video_publish_date,
             'url': self.video_url,

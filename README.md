@@ -5,6 +5,20 @@
 
 ---
 
+## motivation
+
+needed a simple no-fuss way to download yt texts for some nlp related projects for class.
+don't need over-complicated tools that requires complicated dependencies or headless browser.
+
+---
+
+## warning
+
+coded over a weekend, and made some minor bug fixes. don't expect any support,
+and for the sake of the community please don't abuse YT with this script and have them block the existing API.
+
+---
+
 ### > <b>__Video Info__</b>
 
 ```cli

@@ -14,7 +14,7 @@ def main():
     parser.add_argument('-r', '--reply', action='store_true', help='Output comments and replies')
     parser.add_argument('-p', '--pretty', action='store_true', help='Pretty print all outputs')
     parser.add_argument('-v', '--video', action='store_true', help='Output video info only')
-    parser.add_argument('-l', '--limit', type=int, default=-1, help='Comment limit (default: unlimited)')
+    parser.add_argument('-l', '--limit', type=int, default=10, help='Comment limit (default: 10)')
     args = parser.parse_args()
 
     video = Video(args.url)

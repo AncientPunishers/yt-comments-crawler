@@ -44,7 +44,7 @@ def print_comments(video, json_encoder, limit: int, print_replies: bool = False)
     comment_hdrs = video.get_video_comment_headers()
     video_context = video.video_raw_context
 
-    while limit != 0:
+    while limit > 0:
         try:
             comment = next(comment_generator)
             print(json_encoder(comment))
@@ -52,7 +52,7 @@ def print_comments(video, json_encoder, limit: int, print_replies: bool = False)
                 for r in comment.get_comment_replies(comment.comment_id, req_url, comment_hdrs, video_context):
                     print(json_encoder(r))
                     limit -= 1
-                    if limit == 0:
+                    if limit <= 0:
                         return
             limit -= 1
         except StopIteration:
