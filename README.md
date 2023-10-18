@@ -7,15 +7,15 @@
 
 ## motivation
 
-needed a simple no-fuss way to download yt texts for some nlp related projects for class.
-don't need over-complicated tools that requires complicated dependencies or headless browser.
+<br>needed a simple no-fuss way to download yt texts for some nlp related projects for class.
+<br>don't need over-complicated tools that requires complicated dependencies or headless browser.
 
 ---
 
 ## warning
 
-coded over a weekend, and made some minor bug fixes. don't expect any support,
-and for the sake of the community please don't abuse YT with this script and have them block the existing API.
+<br>coded over a weekend, and made some minor bug fixes. don't expect any support,
+<br>and for the sake of the community please don't abuse YT with this script and have them block the existing API.
 
 ---
 
@@ -102,6 +102,16 @@ and for the sake of the community please don't abuse YT with this script and hav
 {"video_id": "dQw4w9WgXcQ", "author": "@DVFT", "comment": ["Fun Fact:", "\n", "\n", "\n", "\n", "‎", "\n", "‎"], "comment_id": "UgzarqjaaPC7TbFINNx4AaABAg.9QM9WCCnud69QM9Yv5lnLT", "like_count": "34K", "reply_count": 0, "is_reply": true, "parent_comment_id": "UgzarqjaaPC7TbFINNx4AaABAg", "published_date": "2 years ago (edited)", "crawled_date": "2023-09-18T02:31:29.264043", "is_video_owner": false}
 {"video_id": "dQw4w9WgXcQ", "author": "@cryux3691", "comment": ["Yo"], "comment_id": "UgzarqjaaPC7TbFINNx4AaABAg.9QM9WCCnud69QM9Z69KVBw", "like_count": "16K", "reply_count": 0, "is_reply": true, "parent_comment_id": "UgzarqjaaPC7TbFINNx4AaABAg", "published_date": "2 years ago", "crawled_date": "2023-09-18T02:31:29.264043", "is_video_owner": false}
 {"video_id": "dQw4w9WgXcQ", "author": "@jrxjared1621", "comment": ["YOO BIG FAN HERE!", "\n", "\n", " congratulations Rick, you are a legend!!!"], "comment_id": "UgzarqjaaPC7TbFINNx4AaABAg.9QM9WCCnud69QM9Z9m-U5E", "like_count": "16K", "reply_count": 0, "is_reply": true, "parent_comment_id": "UgzarqjaaPC7TbFINNx4AaABAg", "published_date": "2 years ago (edited)", "crawled_date": "2023-09-18T02:31:29.264043", "is_video_owner": false}
+```
+
+---
+
+---
+## output to file command ?
+
+```bash
+# dont be a baby
+./crawler.py "" -c -l100 > comments.json
 ```
 
 ---
